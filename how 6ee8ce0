@@ -1,0 +1,190 @@
+[33mcommit 52a4519228673f2f8773abe64bc98848a69466bf[m
+Author: mdimco554902-a11y <m.dimco.554902@umindanao.edu.oh>
+Date:   Tue Sep 22 11:29:57 2026 +0800
+
+    Update scam analysis service and upload button
+
+[1mdiff --git a/.vscode/launch.json b/.vscode/launch.json[m
+[1mnew file mode 100644[m
+[1mindex 0000000..2ba986f[m
+[1m--- /dev/null[m
+[1m+++ b/.vscode/launch.json[m
+[36m@@ -0,0 +1,15 @@[m
+[32m+[m[32m{[m
+[32m+[m[32m    // Use IntelliSense to learn about possible attributes.[m
+[32m+[m[32m    // Hover to view descriptions of existing attributes.[m
+[32m+[m[32m    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387[m
+[32m+[m[32m    "version": "0.2.0",[m
+[32m+[m[32m    "configurations": [[m
+[32m+[m[32m        {[m
+[32m+[m[32m            "type": "chrome",[m
+[32m+[m[32m            "request": "launch",[m
+[32m+[m[32m            "name": "Launch Chrome against localhost",[m
+[32m+[m[32m            "url": "http://localhost:8080",[m
+[32m+[m[32m            "webRoot": "${workspaceFolder}"[m
+[32m+[m[32m        }[m
+[32m+[m[32m    ][m
+[32m+[m[32m}[m
+\ No newline at end of file[m
+[1mdiff --git a/lib/features/scanner/data/scam_analysis_service.dart b/lib/features/scanner/data/scam_analysis_service.dart[m
+[1mindex 4f5b7ec..abc11dc 100644[m
+[1m--- a/lib/features/scanner/data/scam_analysis_service.dart[m
+[1m+++ b/lib/features/scanner/data/scam_analysis_service.dart[m
+[36m@@ -1,13 +1,15 @@[m
+ import 'dart:async';[m
+ import 'dart:convert';[m
+ import 'dart:typed_data';[m
+[32m+[m
+ import 'package:google_generative_ai/google_generative_ai.dart';[m
+ [m
+ class ScamAnalysisResult {[m
+   final bool isScam;[m
+   final String riskLevel; // 'HIGH', 'MEDIUM', 'LOW'[m
+[31m-  final int confidenceScore;[m
+[32m+[m[32m  final int confidenceScore; // Represents Threat Probability (0-100)[m
+   final String summary;[m
+[32m+[m[32m  final String scannedText; // Raw text extracted from image or input message[m
+   final List<String> flags;[m
+ [m
+   ScamAnalysisResult({[m
+[36m@@ -15,6 +17,7 @@[m [mclass ScamAnalysisResult {[m
+     required this.riskLevel,[m
+     required this.confidenceScore,[m
+     required this.summary,[m
+[32m+[m[32m    required this.scannedText,[m
+     required this.flags,[m
+   });[m
+ [m
+[36m@@ -24,29 +27,37 @@[m [mclass ScamAnalysisResult {[m
+       riskLevel: json['riskLevel'] ?? 'LOW',[m
+       confidenceScore: json['confidenceScore'] ?? 0,[m
+       summary: json['summary'] ?? 'No summary available.',[m
+[32m+[m[32m      scannedText: json['scannedText'] ?? '',[m
+       flags: List<String>.from(json['flags'] ?? []),[m
+     );[m
+   }[m
+ }[m
+ [m
+ class ScamAnalysisService {[m
+[31m-  static const String _apiKey = String.fromEnvironment('GEMINI_API_KEY', defaultValue: '');[m
+[32m+[m[32m  static const String _apiKey = 'GEMINI_API_KEY';[m
+ [m
+   static const String _systemPrompt = '''[m
+ You are ScamShield AI, an expert cybersecurity scanner.[m
+ Analyze the provided text or image/screenshot for scam indicators, phishing attempts, smishing, fake urgency, or suspicious links.[m
+ [m
+[32m+[m[32mSTRICT THREAT SCORING RULES:[m
+[32m+[m[32m1. "isScam": Set to true ONLY if the content contains high or medium severity threats/scams. Set to false if safe, benign, or an official notification.[m
+[32m+[m[32m2. "confidenceScore": Integer from 0 to 100 representing THREAT/RISK PROBABILITY:[m
+[32m+[m[32m   - 0 to 39: Safe / Clean / Legitimate content (Low Threat Risk)[m
+[32m+[m[32m   - 40 to 79: Moderate risk or suspicious elements requiring caution (Medium Threat Risk)[m
+[32m+[m[32m   - 80 to 100: Malicious scam, phishing attempt, or high threat (High Threat Risk)[m
+[32m+[m[32m   CRITICAL: Do NOT return high confidence numbers (e.g. 90%) for safe content! Safe content MUST have a score below 40.[m
+[32m+[m[32m3. "riskLevel": Must strictly be "LOW" (for 0-39 score), "MEDIUM" (for 40-79 score), or "HIGH" (for 80-100 score).[m
+[32m+[m[32m4. "scannedText": For image/screenshot inputs, extract and transcribe the exact raw text visible inside the image. For text inputs, echo back the original text.[m
+[32m+[m
+ You MUST respond strictly in raw JSON with this exact structure:[m
+ {[m
+[31m-  "isScam": true,[m
+[31m-  "riskLevel": "HIGH", [m
+[31m-  "confidenceScore": 92,[m
+[31m-  "summary": "This message impersonates a bank requesting urgent login credentials via an unverified link.",[m
+[31m-  "flags": [[m
+[31m-    "Urgent call to action",[m
+[31m-    "Suspicious URL shortener",[m
+[31m-    "Impersonation of official entity"[m
+[31m-  ][m
+[32m+[m[32m  "isScam": false,[m
+[32m+[m[32m  "riskLevel": "LOW",[m
+[32m+[m[32m  "confidenceScore": 5,[m
+[32m+[m[32m  "scannedText": "Raw extracted text or transcribed message content from image...",[m
+[32m+[m[32m  "summary": "This message appears to be a legitimate automated notification with no scam indicators.",[m
+[32m+[m[32m  "flags": [][m
+ }[m
+ ''';[m
+ [m
+[36m@@ -56,39 +67,36 @@[m [mYou MUST respond strictly in raw JSON with this exact structure:[m
+     systemInstruction: Content.system(_systemPrompt),[m
+     generationConfig: GenerationConfig([m
+       responseMimeType: 'application/json',[m
+[31m-      temperature: 0.0,[m
+[32m+[m[32m      temperature: 0.2,[m
+     ),[m
+   );[m
+ [m
+   bool _isAnalyzing = false;[m
+   DateTime? _cooldownUntil;[m
+ [m
+[31m-  /// Manually clears any stuck cooldown states[m
+   void resetCooldown() {[m
+     _cooldownUntil = null;[m
+     _isAnalyzing = false;[m
+   }[m
+ [m
+[31m-  /// Returns remaining seconds if a Google API 429 rate limit is currently active[m
+   int get remainingCooldownSeconds {[m
+     if (_cooldownUntil == null) return 0;[m
+[31m-    [m
+[32m+[m
+     final millisDiff = _cooldownUntil!.difference(DateTime.now()).inMilliseconds;[m
+[31m-    [m
+[32m+[m
+     if (millisDiff <= 0) {[m
+       _cooldownUntil = null;[m
+       return 0;[m
+     }[m
+[31m-    [m
+[32m+[m
+     return (millisDiff / 1000).ceil();[m
+   }[m
+ [m
+[31m-  /// Analyzes plain text (SMS, links, or pasted messages)[m
+   Future<ScamAnalysisResult> analyzeText(String inputText) async {[m
+     _checkPreconditions();[m
+ [m
+     _isAnalyzing = true;[m
+[31m-    int attempts = 3;[m
+[32m+[m[32m    int attempts = 4;[m
+ [m
+     while (attempts > 0) {[m
+       try {[m
+[36m@@ -101,11 +109,10 @@[m [mYou MUST respond strictly in raw JSON with this exact structure:[m
+         return result;[m
+       } catch (e) {[m
+         final msg = e.toString();[m
+[31m-        [m
+[31m-        // Silently retry 503 / busy server errors automatically up to 3 times[m
+[31m-        if ((msg.contains('503') || msg.contains('UNAVAILABLE')) && attempts > 1) {[m
+[32m+[m
+[32m+[m[32m        if ((msg.contains('503') || msg.contains('UNAVAILABLE') || msg.contains('high demand')) && attempts > 1) {[m
+           attempts--;[m
+[31m-          await Future.delayed(const Duration(seconds: 2));[m
+[32m+[m[32m          await Future.delayed(Duration(seconds: (5 - attempts) * 2));[m
+           continue;[m
+         }[m
+ [m
+[36m@@ -113,17 +120,16 @@[m [mYou MUST respond strictly in raw JSON with this exact structure:[m
+         _handleApiError(e);[m
+       }[m
+     }[m
+[31m-    [m
+[32m+[m
+     _isAnalyzing = false;[m
+[31m-    throw Exception('Server temporarily busy. Please try again.');[m
+[32m+[m[32m    throw Exception('Google AI servers are currently experiencing high demand. Please try again in a few seconds.');[m
+   }[m
+ [m
+[31m-  /// Analyzes an uploaded screenshot or image file[m
+   Future<ScamAnalysisResult> analyzeImage(Uint8List imageBytes, String mimeType) async {[m
+     _checkPreconditions();[m
+ [m
+     _isAnalyzing = true;[m
+[31m-    int attempts = 3;[m
+[32m+[m[32m    int attempts = 4;[m
+ [m
+     while (attempts > 0) {[m
+       try {[m
+[36m@@ -131,7 +137,7 @@[m [mYou MUST respond strictly in raw JSON with this exact structure:[m
+         final response = await _model.generateContent([[m
+           Content.multi([[m
+   
